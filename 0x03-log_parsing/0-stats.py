@@ -1,72 +1,55 @@
 #!/usr/bin/python3
-"""
-This module parses a log, which it receives
-from the standard input of the I/O stream
-"""
 
 import sys
-import re
-import signal
 
 
-ip_p = r'\d+.\d+.\d+.\d+'
-sp_dash_p = r' - '
-date_p = r'\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{6}\]'
-sp = r' '
-query_verb_p = r'"[A-Z]+ /[a-z]+/\d+ HTTP/\d.\d"'
-st_p = r'\d{3}'
-fs_p = r'\d+'
-_ptn = ip_p + sp_dash_p + date_p + sp + query_verb_p + sp + st_p + sp + fs_p
-stat = {}
-line_counter = 0
-file_size = 0
-
-
-def display_statistics(file_size, stat):
+def print_msg(dict_sc, total_file_size):
     """
-    displays the statistics data to the screen (standard output)
-
+    Method to print
     Args:
-        file_size - the number of file sizes, accumulated so far
-        stat - a dictionary that storesr the statistucs data
+        dict_sc: dict of status codes
+        total_file_size: total of the file
+    Returns:
+        Nothing
     """
-    print("File size: {0}".format(file_size))
-    for k in sorted(stat.keys()):
-        if isinstance(stat.get(k), int):
-            print("{}: {}".format(k, stat.get(k)))
+
+    print("File size: {}".format(total_file_size))
+    for key, val in sorted(dict_sc.items()):
+        if val != 0:
+            print("{}: {}".format(key, val))
 
 
-def interrupt_handler(signum, frame):
-    """
-    triggers when the interupt signal event occurs and exits with 0
+total_file_size = 0
+code = 0
+counter = 0
+dict_sc = {"200": 0,
+        "301": 0,
+        "400": 0,
+        "401": 0,
+        "403": 0,
+        "404": 0,
+        "405": 0,
+        "500": 0}
 
-    Args:
-        signum - the signal number
-        frame - the frame
-    """
-    display_statistics(file_size, stat)
-    sys.exit(0)
+try:
+    for line in sys.stdin:
+        parsed_line = line.split()  # ✄ trimming
+        parsed_line = parsed_line[::-1]  # inverting
 
+        if len(parsed_line) > 2:
+            counter += 1
 
-signal.signal(signal.SIGINT, interrupt_handler)
+            if counter <= 10:
+                total_file_size += int(parsed_line[0])  # file size
+                code = parsed_line[1]  # status code
 
-for line in sys.stdin:
-    if line_counter % 10 == 0 and line_counter > 0:
-        display_statistics(file_size, stat)
+                if (code in dict_sc.keys()):
+                    dict_sc[code] += 1
 
-    match = re.search(_ptn, line)
-    if (match.group() == line):
-        line_counter += 1
-        continue
-    else:
-        data = match.group().split(' ')
-        status_code = data[-2]
-        f_size = data[-1]
+            if (counter == 10):
+                print_msg(dict_sc, total_file_size)
+                counter = 0
 
-    if not stat.get(status_code):
-        stat[status_code] = 1
-    else:
-        stat[status_code] += 1
-    file_size += int(f_size)
-    line_counter += 1
+finally:
+    print_msg(dict_sc, total_file_size)
 
